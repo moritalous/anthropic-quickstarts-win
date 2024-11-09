@@ -196,31 +196,19 @@ class ComputerTool(BaseAnthropicTool):
 
     async def screenshot(self):
         """Take a screenshot of the current screen and return the base64 encoded image."""
-        output_dir = Path(OUTPUT_DIR)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        path = output_dir / f"screenshot_{uuid4().hex}.png"
+        from PIL import Image, ImageGrab
 
-        # Try gnome-screenshot first
-        if shutil.which("gnome-screenshot"):
-            screenshot_cmd = f"{self._display_prefix}gnome-screenshot -f {path} -p"
-        else:
-            # Fall back to scrot if gnome-screenshot isn't available
-            screenshot_cmd = f"{self._display_prefix}scrot -p {path}"
+        def image_to_base64(image: Image.Image) -> str:
+            import base64
+            import io
 
-        result = await self.shell(screenshot_cmd, take_screenshot=False)
-        if self._scaling_enabled:
-            x, y = self.scale_coordinates(
-                ScalingSource.COMPUTER, self.width, self.height
-            )
-            await self.shell(
-                f"convert {path} -resize {x}x{y}! {path}", take_screenshot=False
-            )
+            buffer = io.BytesIO()
+            image.save(buffer, format="PNG")
+            return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-        if path.exists():
-            return result.replace(
-                base64_image=base64.b64encode(path.read_bytes()).decode()
-            )
-        raise ToolError(f"Failed to take screenshot: {result.error}")
+        image = ImageGrab.grab(bbox=(0,0,self.width, self.height))
+
+        return ToolResult(output=None, error=None, base64_image=image_to_base64(image=image))
 
     async def shell(self, command: str, take_screenshot=True) -> ToolResult:
         """Run a shell command and return the output, error, and optionally a screenshot."""
