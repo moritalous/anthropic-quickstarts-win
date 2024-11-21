@@ -1,12 +1,10 @@
 import asyncio
 import base64
 import os
-import shlex
-import shutil
 from enum import StrEnum
-from pathlib import Path
 from typing import Literal, TypedDict
 from uuid import uuid4
+import pyautogui
 
 from anthropic.types.beta import BetaToolComputerUse20241022Param
 
@@ -103,8 +101,6 @@ class ComputerTool(BaseAnthropicTool):
             self.display_num = None
             self._display_prefix = ""
 
-        self.xdotool = f"{self._display_prefix}xdotool"
-
     async def __call__(
         self,
         *,
@@ -128,11 +124,11 @@ class ComputerTool(BaseAnthropicTool):
             )
 
             if action == "mouse_move":
-                return await self.shell(f"{self.xdotool} mousemove --sync {x} {y}")
+                pyautogui.moveTo(x, y)
+                return await self.screenshot()
             elif action == "left_click_drag":
-                return await self.shell(
-                    f"{self.xdotool} mousedown 1 mousemove --sync {x} {y} mouseup 1"
-                )
+                pyautogui.dragTo(x, y, button="left")
+                return await self.screenshot()
 
         if action in ("key", "type"):
             if text is None:
@@ -143,18 +139,15 @@ class ComputerTool(BaseAnthropicTool):
                 raise ToolError(output=f"{text} must be a string")
 
             if action == "key":
-                return await self.shell(f"{self.xdotool} key -- {text}")
+                if "+" in text:
+                    pyautogui.hotkey(*(text.split("+")))
+                else:
+                    pyautogui.press(text)
+                
+                return await self.screenshot()
             elif action == "type":
-                results: list[ToolResult] = []
-                for chunk in chunks(text, TYPING_GROUP_SIZE):
-                    cmd = f"{self.xdotool} type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}"
-                    results.append(await self.shell(cmd, take_screenshot=False))
-                screenshot_base64 = (await self.screenshot()).base64_image
-                return ToolResult(
-                    output="".join(result.output or "" for result in results),
-                    error="".join(result.error or "" for result in results),
-                    base64_image=screenshot_base64,
-                )
+                pyautogui.typewrite(text)
+                return await self.screenshot()
 
         if action in (
             "left_click",
@@ -172,25 +165,24 @@ class ComputerTool(BaseAnthropicTool):
             if action == "screenshot":
                 return await self.screenshot()
             elif action == "cursor_position":
-                result = await self.shell(
-                    f"{self.xdotool} getmouselocation --shell",
-                    take_screenshot=False,
+                position = pyautogui.position()
+                return ToolResult(
+                    output=f"X={position.x}, Y={position.y}",
+                    error=None,
+                    base64_image=(await self.screenshot()).base64_image,
                 )
-                output = result.output or ""
-                x, y = self.scale_coordinates(
-                    ScalingSource.COMPUTER,
-                    int(output.split("X=")[1].split("\n")[0]),
-                    int(output.split("Y=")[1].split("\n")[0]),
-                )
-                return result.replace(output=f"X={x},Y={y}")
             else:
-                click_arg = {
-                    "left_click": "1",
-                    "right_click": "3",
-                    "middle_click": "2",
-                    "double_click": "--repeat 2 --delay 500 1",
-                }[action]
-                return await self.shell(f"{self.xdotool} click {click_arg}")
+                if action == "left_click":
+                    pyautogui.leftClick()
+                elif action == "right_click":
+                    pyautogui.rightClick()
+                elif action == "middle_click":
+                    pyautogui.middleClick()
+                elif action == "double_click":
+                    pyautogui.doubleClick()
+                
+                return await self.screenshot()
+                
 
         raise ToolError(f"Invalid action: {action}")
 
@@ -209,18 +201,6 @@ class ComputerTool(BaseAnthropicTool):
         image = ImageGrab.grab(bbox=(0,0,self.width, self.height))
 
         return ToolResult(output=None, error=None, base64_image=image_to_base64(image=image))
-
-    async def shell(self, command: str, take_screenshot=True) -> ToolResult:
-        """Run a shell command and return the output, error, and optionally a screenshot."""
-        _, stdout, stderr = await run(command)
-        base64_image = None
-
-        if take_screenshot:
-            # delay to let things settle before taking a screenshot
-            await asyncio.sleep(self._screenshot_delay)
-            base64_image = (await self.screenshot()).base64_image
-
-        return ToolResult(output=stdout, error=stderr, base64_image=base64_image)
 
     def scale_coordinates(self, source: ScalingSource, x: int, y: int):
         """Scale coordinates to a target maximum resolution."""

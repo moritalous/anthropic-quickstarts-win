@@ -108,7 +108,7 @@ async def sampling_loop(
         elif provider == APIProvider.VERTEX:
             client = AnthropicVertex()
         elif provider == APIProvider.BEDROCK:
-            client = AnthropicBedrock()
+            client = AnthropicBedrock(aws_profile="dev", aws_region="us-west-2")
 
         if enable_prompt_caching:
             betas.append(PROMPT_CACHING_BETA_FLAG)
