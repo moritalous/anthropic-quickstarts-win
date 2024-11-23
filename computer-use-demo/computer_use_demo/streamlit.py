@@ -29,6 +29,9 @@ from computer_use_demo.loop import (
 )
 from computer_use_demo.tools import ToolResult
 
+os.environ["WIDTH"] = "1024"
+os.environ["HEIGHT"] = "768"
+
 CONFIG_DIR = WindowsPath("~/.anthropic").expanduser()
 API_KEY_FILE = CONFIG_DIR / "api_key"
 STREAMLIT_STYLE = """
