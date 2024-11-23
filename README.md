@@ -1,3 +1,23 @@
+# 💡 This repository contains Windows version of "Computer Use Demo"
+
+> [!CAUTION]
+> We strongly recommend running it in a virtual environment.
+
+in PowerShell
+
+```PowerShell
+git clone https://github.com/moritalous/anthropic-quickstarts-win.git
+cd anthropic-quickstarts-win
+cd computer-use-demo
+pip install -r dev-requirements.txt
+streamlit.cmd run computer_use_demo\streamlit.py
+```
+
+
+---
+Here is the original README:
+
+
 # Anthropic Quickstarts
 
 Anthropic Quickstarts is a collection of projects designed to help developers quickly get started with building  applications using the Anthropic API. Each quickstart provides a foundation that you can easily build upon and customize for your specific needs.
