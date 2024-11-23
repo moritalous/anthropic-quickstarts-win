@@ -13,6 +13,10 @@ pip install -r dev-requirements.txt
 streamlit.cmd run computer_use_demo\streamlit.py
 ```
 
+Demo movie
+
+https://youtu.be/uiDTUU9odBI
+
 
 ---
 Here is the original README:
